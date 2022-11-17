@@ -53,6 +53,9 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
   def setup
     ENV['http_proxy'] = ENV['https_proxy'] = ENV['no_proxy'] = nil
     @uri = 'http://www.google.com/index.html'
+    @uri_without_query = 'https://play.google.com/store/apps/details'
+    @uri_with_query = 'https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox'
+
     @uri_https = 'https://encrypted.google.com'
     @uri_http_domain = 'http.com'
     @uri_http_domain_scheme = 'http://http.com'
@@ -62,6 +65,8 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
 
     FakeWeb.register_uri(:get, @uri, :body => "PONG")
     FakeWeb.register_uri(:head, @uri, :body => "PONG")
+    FakeWeb.register_uri(:get, @uri_with_query, :body => "PONG")
+    FakeWeb.register_uri(:head, @uri_with_query, :body => "PONG")
     FakeWeb.register_uri(:head, @uri_https, :body => "PONG")
     FakeWeb.register_uri(:get, @uri_https, :body => "PONG")
     FakeWeb.register_uri(:get, "http://#{@uri_http_domain}", :body => "PONG")
@@ -275,6 +280,15 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
   test 'ping with get option' do
     @http = Net::Ping::HTTP.new(@uri)
     @http.get_request = true
+    assert_true(@http.ping)
+  end
+
+  test 'ping_with_query' do
+    # without query doesnt work, but with query does
+    @http = Net::Ping::HTTP.new(@uri_without_query)
+    assert_false(@http.ping)
+
+    @http = Net::Ping::HTTP.new(@uri_with_query)
     assert_true(@http.ping)
   end
 

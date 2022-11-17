@@ -149,7 +149,7 @@ module Net
       proxy = uri.find_proxy || URI.parse("")
 
       begin
-        uri_path = uri.path.empty? ? '/' : uri.path
+        uri_path = uri.path.empty? ? '/' : uri.request_uri
 
         headers = {}
         headers["User-Agent"] = user_agent if user_agent
