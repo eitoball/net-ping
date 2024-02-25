@@ -23,11 +23,16 @@ module Net
     #
     attr_reader :data_size
 
+
+    attr_reader :sock_type
+
     # Creates and returns a new Ping::ICMP object.  This is similar to its
     # superclass constructor, but must be created with root privileges (on
     # UNIX systems), and the port value is ignored.
     #
     def initialize(host=nil, port=nil, timeout=5)
+      @sock_type = Socket::SOCK_RAW
+
       begin
         # If we have cap2, but not are root, or have net_raw, raise an error
         require 'cap2'
@@ -38,9 +43,8 @@ module Net
           raise StandardError, 'requires root privileges or setcap net_raw'
         end
       rescue LoadError
-        # Without cap2, raise error if we are not root
         unless Process.euid == 0
-          raise StandardError, 'requires root privileges or setcap net_raw'
+          @sock_type = Socket::SOCK_DGRAM
         end
       end
 
@@ -90,7 +94,7 @@ module Net
 
       socket = Socket.new(
         Socket::PF_INET,
-        Socket::SOCK_RAW,
+        sock_type,
         Socket::IPPROTO_ICMP
       )
 
