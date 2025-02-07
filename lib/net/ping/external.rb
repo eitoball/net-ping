@@ -116,8 +116,10 @@ module Net
           pcmd += ['-i', interval.to_s] unless RbConfig::CONFIG['busybox']
         when /aix/i
           pcmd += ['-c', count.to_s, '-w', timeout.to_s, host]
-        when /bsd|osx|mach|darwin/i
+        when /bsd|mach/i
           pcmd += ['-c', count.to_s, '-t', timeout.to_s, host]
+        when /osx|darwin/i
+          pcmd += ['-c', count.to_s, '-i', timeout.to_s, host]
         when /solaris|sunos/i
           pcmd += [host, timeout.to_s]
         when /hpux/i
