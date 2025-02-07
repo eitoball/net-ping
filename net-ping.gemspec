@@ -1,4 +1,3 @@
-require 'rubygems'
 require 'rbconfig'
 
 Gem::Specification.new do |spec|
@@ -25,7 +24,7 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = ">= 1.9.3"
 
   spec.add_development_dependency('test-unit', '>= 0')
-  spec.add_development_dependency('fakeweb', '>= 0')
+  spec.add_development_dependency('webmock', '>= 0')
   spec.add_development_dependency('rake', '>= 0')
   spec.add_development_dependency('pry-byebug', '>= 0')
 

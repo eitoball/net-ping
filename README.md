@@ -4,7 +4,7 @@ A collection of classes that provide different ways to ping computers.
 ## Prerequisites
   * ffi
   * win32-security (MS Windows only)
-  * fakeweb (test only)
+  * webmock (test only)
   * test-unit (test only)
 
   Ruby users should use Ruby 1.9.3 or later.

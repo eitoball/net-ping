@@ -8,7 +8,6 @@ require 'test_net_ping_external'
 require 'test_net_ping_http'
 require 'test_net_ping_tcp'
 require 'test_net_ping_udp'
-require 'fakeweb'
 
 if File::ALT_SEPARATOR
   require 'win32/security'
@@ -42,5 +41,3 @@ class TC_Net_Ping < Test::Unit::TestCase
     assert_equal('1.7.6', Net::Ping::VERSION)
   end
 end
-
-FakeWeb.allow_net_connect = false
