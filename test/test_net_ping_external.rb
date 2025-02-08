@@ -188,6 +188,41 @@ class TC_Net_Ping_External < Test::Unit::TestCase
     Open3.define_singleton_method(:popen3, original_popen3)
   end
 
+  test "ping6 succeeds without an exception when stderr is empty" do
+    stdin = StringIO.new
+    stdout = StringIO.new('64 bytes from ::1')
+    stderr = StringIO.new
+    status = Struct.new(:exitstatus).new(0)
+    thread = Struct.new(:value).new(status)
+    popen3 = Open3.method(:popen3)
+    nil_match = NilClass.instance_method(:=~) if NilClass.instance_methods(false).include?(:=~)
+    false_match = FalseClass.instance_method(:=~) if FalseClass.instance_methods(false).include?(:=~)
+
+    Open3.singleton_class.send(:define_method, :popen3) do |*args, &block|
+      block.call(stdin, stdout, stderr, thread)
+    end
+    [NilClass, FalseClass].each do |klass|
+      klass.send(:define_method, :=~) do |*args|
+        raise NoMethodError, "undefined method '=~' for #{self.inspect}"
+      end
+    end
+
+    assert_true(@pe.ping6('::1'))
+    assert_nil(@pe.exception)
+  ensure
+    Open3.singleton_class.send(:define_method, :popen3, popen3) if popen3
+    if nil_match
+      NilClass.send(:define_method, :=~, nil_match)
+    else
+      NilClass.send(:remove_method, :=~)
+    end
+    if false_match
+      FalseClass.send(:define_method, :=~, false_match)
+    else
+      FalseClass.send(:remove_method, :=~)
+    end
+  end
+
   def teardown
     @host  = nil
     @bogus = nil
