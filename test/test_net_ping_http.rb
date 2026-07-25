@@ -131,12 +131,11 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
     assert_equal(5, @bad.timeout)
   end
 
-  # TODO: Figure out how to do this with WebMock.
   test 'ping fails if timeout exceeded' do
-    WebMock.allow_net_connect!
+    stub_request(:head, 'https://www.google.com/').to_timeout
     @http = Net::Ping::HTTP.new('https://www.google.com', 443, 0.001)
     assert_false(@http.ping?)
-    assert(['Failed to open TCP connection to www.google.com:443 (execution expired)', 'execution expired', 'Net::OpenTimeout'].include?(@http.exception))
+    assert_include(['execution expired', 'Net::OpenTimeout'], @http.exception)
   end
 
   test 'exception attribute basic functionality' do
