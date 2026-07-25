@@ -5,49 +5,8 @@
 # 'test:http' Rake task.
 #################################################################################
 require 'test-unit'
-require 'fakeweb'
+require 'webmock/test_unit'
 require 'net/ping/http'
-
-# https://github.com/chrisk/fakeweb/commit/eed5056d19af2fe56d3f362ed32095bd8fb3fff7
-module FakeWeb
-  class StubSocket
-    def closed?
-      @closed ||= false
-      @closed
-    end
-
-    def close
-      @closed = true
-    end
-  end
-end
-
-# https://github.com/chrisk/fakeweb/commit/5bd70b72962081e46c7b22a39d00b7660d0ad30e
-module Net
-  class BufferedIO
-    def initialize_with_fakeweb(io, read_timeout: 60, write_timeout: 60, continue_timeout: nil, debug_output: nil)
-      @read_timeout = read_timeout
-      @write_timeout = write_timeout
-      @continue_timeout = continue_timeout
-      @debug_output = debug_output
-      @rbuf = ''.b
-
-      @io = case io
-      when Socket, OpenSSL::SSL::SSLSocket, IO
-        io
-      when String
-        if !io.include?("\0") && File.exists?(io) && !File.directory?(io)
-          File.open(io, "r")
-        else
-          StringIO.new(io)
-        end
-      end
-      raise "Unable to create local socket" unless @io
-    end
-    alias_method :initialize_without_fakeweb, :initialize
-    alias_method :initialize, :initialize_with_fakeweb
-  end
-end
 
 class TC_Net_Ping_HTTP < Test::Unit::TestCase
   def setup
@@ -58,27 +17,24 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
     @uri_http_domain_scheme = 'http://http.com'
     @uri_http_domain_schemes = 'https://http.com'
     @proxy = 'http://username:password@proxymoxie:3128'
-    FakeWeb.allow_net_connect = false
+    WebMock.disable_net_connect!
 
-    FakeWeb.register_uri(:get, @uri, :body => "PONG")
-    FakeWeb.register_uri(:head, @uri, :body => "PONG")
-    FakeWeb.register_uri(:head, @uri_https, :body => "PONG")
-    FakeWeb.register_uri(:get, @uri_https, :body => "PONG")
-    FakeWeb.register_uri(:get, "http://#{@uri_http_domain}", :body => "PONG")
-    FakeWeb.register_uri(:head, "http://#{@uri_http_domain}", :body => "PONG")
-    FakeWeb.register_uri(:get, @uri_http_domain_scheme, :body => "PONG")
-    FakeWeb.register_uri(:head, @uri_http_domain_scheme, :body => "PONG")
-    FakeWeb.register_uri(:get, @uri_http_domain_schemes, :body => "PONG")
-    FakeWeb.register_uri(:head, @uri_http_domain_schemes, :body => "PONG")
-    FakeWeb.register_uri(:head, "https://jigsaw.w3.org/HTTP/300/302.html",
-                         :body => "PONG",
-                         :location => "#{@uri}",
-                         :status => ["302", "Found"])
+    stub_request(:get, @uri).to_return(body: "PONG")
+    stub_request(:head, @uri).to_return(body: "PONG")
+    stub_request(:head, @uri_https).to_return(body: "PONG")
+    stub_request(:get, @uri_https).to_return(body: "PONG")
+    stub_request(:get, "http://#{@uri_http_domain}").to_return(body: "PONG")
+    stub_request(:head, "http://#{@uri_http_domain}").to_return(body: "PONG")
+    stub_request(:get, @uri_http_domain_scheme).to_return(body: "PONG")
+    stub_request(:head, @uri_http_domain_scheme).to_return(body: "PONG")
+    stub_request(:get, @uri_http_domain_schemes).to_return(body: "PONG")
+    stub_request(:head, @uri_http_domain_schemes).to_return(body: "PONG")
 
-    FakeWeb.register_uri(:any, 'http://www.blabfoobarurghxxxx.com', :exception => SocketError)
-    FakeWeb.register_uri(:head, 'http://http502.com',
-                         :body => "",
-                         :status => ["502", "Bad Gateway"])
+    stub_request(:head, "https://jigsaw.w3.org/HTTP/300/302.html")
+      .to_return(body: "PONG", status: ["302", "Found"], headers: { 'location' => "#{@uri}" })
+
+    stub_request(:any, "http://www.blabfoobarurghxxxx.com").to_raise(SocketError)
+    stub_request(:head, "http://http502.com").to_return(body: "", status: ["502", "Bad Gateway"])
 
     @http = Net::Ping::HTTP.new(@uri, 80, 30)
     @http_http_domain = Net::Ping::HTTP.new(@uri_http_domain, 80, 30)
@@ -175,12 +131,12 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
     assert_equal(5, @bad.timeout)
   end
 
-  # TODO: Figure out how to do this with FakeWeb.
+  # TODO: Figure out how to do this with WebMock.
   test 'ping fails if timeout exceeded' do
-    FakeWeb.allow_net_connect = true
+    WebMock.allow_net_connect!
     @http = Net::Ping::HTTP.new('https://www.google.com', 443, 0.001)
     assert_false(@http.ping?)
-    assert(['execution expired', 'Net::OpenTimeout'].include?(@http.exception))
+    assert(['Failed to open TCP connection to www.google.com:443 (execution expired)', 'execution expired', 'Net::OpenTimeout'].include?(@http.exception))
   end
 
   test 'exception attribute basic functionality' do
@@ -220,7 +176,7 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
   test 'ping with user agent' do
     @http.user_agent = "KDDI-CA32"
     assert_true(@http.ping)
-    assert_equal("KDDI-CA32", FakeWeb.last_request["user-agent"])
+    assert_requested(:any, @uri, headers: { "User-Agent" => "KDDI-CA32" }, times: 1)
   end
 
   test 'redirect_limit accessor is defined' do
