@@ -11,6 +11,7 @@
 require 'test-unit'
 require 'net/ping/external'
 require 'mkmf'
+require 'stringio'
 
 class TC_Net_Ping_External < Test::Unit::TestCase
   def setup
@@ -137,6 +138,30 @@ class TC_Net_Ping_External < Test::Unit::TestCase
   test "pinging an unreachable host on the same subnet returns false" do
     @bad = Net::Ping::External.new('192.168.0.99')
     assert_false(@bad.ping?)
+  end
+
+  test "ping6 uses interval for macOS" do
+    command = nil
+    original_os = RbConfig::CONFIG['host_os']
+    original_popen3 = Open3.method(:popen3)
+
+    RbConfig::CONFIG['host_os'] = 'darwin'
+    Open3.define_singleton_method(:popen3) do |*args, &block|
+      command = args
+      stdin = StringIO.new
+      stdout = StringIO.new
+      stderr = StringIO.new
+      status = Struct.new(:exitstatus).new(0)
+      thread = Struct.new(:value).new(status)
+      block.call(stdin, stdout, stderr, thread)
+    end
+
+    @pe.ping6('example.test', 2, 3, 4)
+
+    assert_equal(['ping6', '-c', '2', '-i', '3', 'example.test'], command)
+  ensure
+    RbConfig::CONFIG['host_os'] = original_os
+    Open3.define_singleton_method(:popen3, original_popen3)
   end
 
   def teardown
