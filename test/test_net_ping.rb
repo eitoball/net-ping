@@ -39,6 +39,6 @@ end
 
 class TC_Net_Ping < Test::Unit::TestCase
   def test_net_ping_version
-    assert_equal('2.0.9', Net::Ping::VERSION)
+    assert_equal(Gem::Specification.load('net-ping.gemspec').version.to_s, Net::Ping::VERSION)
   end
 end

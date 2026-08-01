@@ -1,6 +1,8 @@
 require 'socket'
 require 'timeout'
 
+require_relative 'version'
+
 # The Net module serves as a namespace only.
 #
 module Net
@@ -9,9 +11,6 @@ module Net
    # types. You should not instantiate this class directly.
    #
    class Ping
-      # The version of the net-ping library.
-      VERSION = '2.0.9'
-
       # The host to ping. In the case of Ping::HTTP, this is the URI.
       attr_accessor :host
 
