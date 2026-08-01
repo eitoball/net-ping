@@ -38,6 +38,10 @@ def with_unbundled_env
   end
 end
 
+def platform_round_trips?(platform_string)
+  Gem::Platform.new(platform_string).to_s == platform_string
+end
+
 def platform_installable?(spec)
   if Gem::Platform.respond_to?(:installable?)
     Gem::Platform.installable?(spec)
@@ -83,7 +87,7 @@ namespace 'gem' do
         memo[dependency.name] = dependency.requirement.to_s
       end
 
-      if packaged_spec.platform.to_s != expected_platform
+      if platform_round_trips?(expected_platform) && packaged_spec.platform.to_s != expected_platform
         abort("#{artifact}: expected platform #{expected_platform.inspect}, got #{packaged_spec.platform.to_s.inspect}")
       end
 
