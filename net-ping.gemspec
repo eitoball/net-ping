@@ -1,5 +1,3 @@
-require 'rbconfig'
-
 Gem::Specification.new do |spec|
   spec.name      = 'net-ping'
   spec.version   = '2.0.9'
@@ -9,7 +7,7 @@ Gem::Specification.new do |spec|
   spec.homepage  = 'https://github.com/chernesk/net-ping'
   spec.summary   = 'A ping interface for Ruby.'
   spec.test_file = 'test/test_net_ping.rb'
-  spec.files     = Dir['**/*'].reject{ |f| f.include?('git') }
+  spec.files     = Dir['**/*'].reject { |f| f.include?('git') || File.extname(f) == '.gem' }
   spec.metadata = {
     'bug_tracker_uri' => "#{spec.homepage}/issues",
     'changelog_uri' => "#{spec.homepage}/blob/master/CHANGES",
@@ -27,20 +25,6 @@ Gem::Specification.new do |spec|
   spec.add_development_dependency('webmock', '>= 0')
   spec.add_development_dependency('rake', '>= 0')
   spec.add_development_dependency('pry-byebug', '>= 0')
-
-  if File::ALT_SEPARATOR
-    require 'rbconfig'
-    arch = RbConfig::CONFIG['build_os'] || 'mingw32' # JRuby
-    spec.platform = Gem::Platform.new(['universal', arch])
-    spec.platform.version = nil
-
-    # Used for icmp pings.
-    spec.add_dependency('win32-security', '>= 0.2.0')
-
-    # No longer a default gem as of Ruby 4.0. Used by the WMI ping class.
-    spec.add_dependency('win32ole', '>= 1.8.8')
-  end
-  spec.add_dependency('cap2', '>= 0.2.2') if RUBY_PLATFORM =~ /linux/i
 
   spec.description = <<-EOF
     The net-ping library provides a ping interface for Ruby. It includes

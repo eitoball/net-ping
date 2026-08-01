@@ -5,6 +5,7 @@
 # class test won't be run unless this is run as a privileged process.
 ######################################################################
 require 'test_net_ping_external'
+require 'test_net_ping_gem_packaging'
 require 'test_net_ping_http'
 require 'test_net_ping_tcp'
 require 'test_net_ping_udp'

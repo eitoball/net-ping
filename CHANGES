@@ -1,3 +1,7 @@
+== Next Release
+* Publish platform-specific gem metadata so Linux installs cap2 and current
+  Windows RubyInstaller installs win32-security for ICMP support.
+
 == 2.0.9 - 25-Jul-2026
 * Add GitHub Actions CI [#33](https://github.com/eitoball/net-ping/pull/33)
   and update its supported Ruby versions [#38](https://github.com/eitoball/net-ping/pull/38).

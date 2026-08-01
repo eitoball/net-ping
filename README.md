@@ -3,7 +3,9 @@ A collection of classes that provide different ways to ping computers.
 
 ## Prerequisites
   * ffi
-  * win32-security (MS Windows only)
+  * win32-security (installed from the Windows gem artifact)
+  * win32ole (installed from the Windows gem artifact)
+  * cap2 (installed from the Linux gem artifact)
   * webmock (test only)
   * test-unit (test only)
 
