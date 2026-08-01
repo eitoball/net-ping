@@ -36,6 +36,9 @@ Gem::Specification.new do |spec|
 
     # Used for icmp pings.
     spec.add_dependency('win32-security', '>= 0.2.0')
+
+    # No longer a default gem as of Ruby 4.0. Used by the WMI ping class.
+    spec.add_dependency('win32ole', '>= 1.8.8')
   end
   spec.add_dependency('cap2', '>= 0.2.2') if RUBY_PLATFORM =~ /linux/i
 
