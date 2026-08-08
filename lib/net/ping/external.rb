@@ -66,7 +66,7 @@ module Net
                 bool = true  # Success, at least one response.
               end
 
-              if err & (err =~ /warning/i)
+              if err && (err =~ /warning/i)
                 @warning = err.chomp
               end
             when 2
@@ -149,7 +149,7 @@ module Net
                 bool = true  # Success, at least one response.
               end
 
-              if err & err =~ /warning/i
+              if err && (err =~ /warning/i)
                 @warning = err.chomp
               end
             when 2
