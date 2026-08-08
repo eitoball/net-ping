@@ -1,6 +1,8 @@
+require_relative "lib/net/ping/version"
+
 Gem::Specification.new do |spec|
   spec.name      = 'net-ping'
-  spec.version   = '2.0.9'
+  spec.version   = Net::Ping::VERSION
   spec.license   = 'Artistic 2.0'
   spec.author    = 'Chris Chernesky'
   spec.email     = 'chris.netping@tinderglow.com'
