@@ -1,3 +1,9 @@
+== 2.1.1 - 16-Aug-2026
+* Fix the license format in net-ping.gemspec to use the SPDX identifier
+  "Artistic-2.0" [#47](https://github.com/eitoball/net-ping/pull/47).
+* Exclude CLAUDE.md and docs/ from the packaged gem files
+  [#48](https://github.com/eitoball/net-ping/pull/48).
+
 == 2.1.0 - 08-Aug-2026
 * Publish platform-specific gem metadata so Linux installs cap2 and current
   Windows RubyInstaller installs win32-security for ICMP support
