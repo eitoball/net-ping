@@ -9,7 +9,9 @@ Gem::Specification.new do |spec|
   spec.homepage  = 'https://github.com/chernesk/net-ping'
   spec.summary   = 'A ping interface for Ruby.'
   spec.test_file = 'test/test_net_ping.rb'
-  spec.files     = Dir['**/*'].reject { |f| f.include?('git') || File.extname(f) == '.gem' }
+  spec.files     = Dir['**/*'].reject do |f|
+    f.include?('git') || File.extname(f) == '.gem' || f == 'CLAUDE.md' || f == 'docs' || f.start_with?('docs/')
+  end
   spec.metadata = {
     'bug_tracker_uri' => "#{spec.homepage}/issues",
     'changelog_uri' => "#{spec.homepage}/blob/master/CHANGES",

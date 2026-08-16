@@ -78,6 +78,16 @@ class TestNetPingGemPackaging < Test::Unit::TestCase
     delete_files(built_gem_files)
   end
 
+  def test_gem_create_excludes_non_distributable_project_files_from_spec_files
+    load_specifications.each do |path, spec|
+      non_distributable = spec.files.select do |f|
+        f == 'CLAUDE.md' || f == 'docs' || f.start_with?('docs/')
+      end
+
+      assert_equal([], non_distributable, path)
+    end
+  end
+
   def test_gem_check_uses_fixed_expectations_instead_of_loaded_specifications
     stdout, stderr, status = run_rake('clean', 'gem:create')
 
