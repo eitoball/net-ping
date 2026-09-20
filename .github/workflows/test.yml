@@ -29,3 +29,5 @@ jobs:
           bundler-cache: true
       - run: bundle exec rake test
       - run: bundle exec rake gem:create gem:check
+      - if: matrix.os == 'ubuntu-24.04' && matrix.ruby == '3.3'
+        run: bundle exec rake sig:validate

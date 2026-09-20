@@ -1,0 +1,19 @@
+module Net
+  class Ping
+    class TCP < Ping
+      def self.service_check: () -> bool
+
+      def self.service_check=: (bool) -> bool
+
+      def ping: (?String? host) -> (Float | false | nil)
+
+      def self.econnrefused: () -> bool
+
+      def self.econnrefused=: (bool) -> bool
+
+      def self.ecr: () -> bool
+
+      def self.ecr=: (bool) -> bool
+    end
+  end
+end

@@ -1,0 +1,13 @@
+module Net
+  class Ping
+    class External < Ping
+      def ping: (?String? host, ?Integer count, ?Numeric interval, ?Numeric timeout) -> bool
+
+      def ping6: (?String? host, ?Integer count, ?Numeric interval, ?Numeric timeout) -> bool
+
+      alias ping? ping
+
+      alias pingecho ping
+    end
+  end
+end
