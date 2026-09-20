@@ -91,26 +91,20 @@ module Net
     # UNIX systems), and the port value is ignored.
     #
     def initialize(host=nil, port=nil, timeout=5)
-      begin
-        # If we have cap2, but not are root, or have net_raw, raise an error
-        require 'cap2'
-        current_process = Cap2.process
-        unless Process.euid == 0 \
-          || current_process.permitted?(:net_raw) \
-          && current_process.enabled?(:net_raw)
-          raise StandardError, 'requires root privileges or setcap net_raw'
-        end
-      rescue LoadError
-        # Without cap2, raise error if we are not root
-        unless Process.euid == 0
-          raise StandardError, 'requires root privileges or setcap net_raw'
-        end
-      end
-
-      if File::ALT_SEPARATOR
-        unless Win32::Security.elevated_security?
-          raise 'requires elevated security'
-        end
+      case self.class.host_platform
+        when :windows
+          unless Win32::Security.elevated_security?
+            raise 'requires elevated security'
+          end
+        when :macos, :linux
+          # SOCK_DGRAM ICMP sockets don't require elevated privileges on
+          # these platforms. If a SOCK_RAW fallback turns out to be
+          # necessary (Linux only), the privilege check happens lazily
+          # in create_socket instead.
+        else
+          unless self.class.privileged_for_raw?
+            raise StandardError, 'requires root privileges or setcap net_raw'
+          end
       end
 
       @seq = 0

@@ -102,4 +102,40 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     assert_nil(ping_id)
     assert_nil(seq)
   end
+
+  class FakeMacICMP < Net::Ping::ICMP
+    def self.host_platform(*); :macos; end
+    def self.privileged_for_raw?(*); false; end
+  end
+
+  class FakeLinuxICMP < Net::Ping::ICMP
+    def self.host_platform(*); :linux; end
+    def self.privileged_for_raw?(*); false; end
+  end
+
+  class FakeUnprivilegedOtherUnixICMP < Net::Ping::ICMP
+    def self.host_platform(*); :other; end
+    def self.privileged_for_raw?(*); false; end
+  end
+
+  class FakePrivilegedOtherUnixICMP < Net::Ping::ICMP
+    def self.host_platform(*); :other; end
+    def self.privileged_for_raw?(*); true; end
+  end
+
+  test "initialize does not require privilege on macos" do
+    assert_nothing_raised{ FakeMacICMP.new('127.0.0.1') }
+  end
+
+  test "initialize does not require privilege on linux" do
+    assert_nothing_raised{ FakeLinuxICMP.new('127.0.0.1') }
+  end
+
+  test "initialize raises without privilege on other unix platforms" do
+    assert_raise(StandardError){ FakeUnprivilegedOtherUnixICMP.new('127.0.0.1') }
+  end
+
+  test "initialize succeeds with privilege on other unix platforms" do
+    assert_nothing_raised{ FakePrivilegedOtherUnixICMP.new('127.0.0.1') }
+  end
 end
