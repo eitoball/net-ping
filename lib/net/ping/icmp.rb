@@ -61,12 +61,12 @@ module Net
     end
 
     # Extracts [type, ping_id, seq] from a raw ICMP reply payload as
-    # returned by Socket#recvfrom. RAW sockets receive the IPv4 header
-    # in front of the ICMP message; DGRAM sockets don't, so the offsets
-    # shift back by the 20-byte IPv4 header size.
+    # returned by Socket#recvfrom. When the reply came off a socket using
+    # Linux's ping-socket wire format, the IPv4 header is stripped, so the
+    # offsets shift back by the 20-byte IPv4 header size.
     #
-    def self.parse_reply(data, dgram: false)
-      type_offset, id_offset, error_id_offset = dgram ? [0, 4, 32] : [20, 24, 52]
+    def self.parse_reply(data, header_stripped: false)
+      type_offset, id_offset, error_id_offset = header_stripped ? [0, 4, 32] : [20, 24, 52]
 
       type = data[type_offset, 2].unpack('C2').first
       ping_id = nil
@@ -87,8 +87,10 @@ module Net
     end
 
     # Creates and returns a new Ping::ICMP object.  This is similar to its
-    # superclass constructor, but must be created with root privileges (on
-    # UNIX systems), and the port value is ignored.
+    # superclass constructor, but the port value is ignored. Root privileges
+    # (or CAP_NET_RAW) are not required on macOS or Linux (with a suitable
+    # net.ipv4.ping_group_range); they're only needed as a Linux fallback,
+    # or unconditionally on Windows and other/unverified UNIX platforms.
     #
     def initialize(host=nil, port=nil, timeout=5)
       case self.class.host_platform
@@ -145,7 +147,7 @@ module Net
       super(host)
       bool = false
 
-      socket, dgram = create_socket
+      socket, header_stripped = create_socket
 
       if @bind_host
         saddr = Socket.pack_sockaddr_in(@bind_port, @bind_host)
@@ -173,10 +175,11 @@ module Net
 
       socket.send(msg, 0, saddr) # Send the message
 
-      # On a DGRAM socket the kernel overwrites the ICMP identifier with
-      # the socket's assigned local port; @ping_id is only meaningful on
-      # RAW sockets, where we chose it ourselves.
-      expected_id = dgram ? socket.local_address.ip_port : @ping_id
+      # On a socket using Linux's ping-socket wire format, the kernel
+      # overwrites the ICMP identifier with the socket's assigned local
+      # port; @ping_id is only meaningful otherwise, where we chose it
+      # ourselves.
+      expected_id = header_stripped ? socket.local_address.ip_port : @ping_id
 
       begin
         Timeout.timeout(@timeout){
@@ -189,7 +192,7 @@ module Net
             end
 
             data = socket.recvfrom(1500).first
-            type, ping_id, seq = self.class.parse_reply(data, dgram: dgram)
+            type, ping_id, seq = self.class.parse_reply(data, header_stripped: header_stripped)
 
             if ping_id == expected_id && seq == @seq && type == ICMP_ECHOREPLY
               bool = true
@@ -229,22 +232,16 @@ module Net
       return (~((check >> 16) + check) & 0xffff)
     end
 
-    # Opens the ICMP socket to use for this ping, returning [socket, dgram]
-    # where dgram is NOT simply "is this a SOCK_DGRAM socket" -- it means
-    # "does this socket use the Linux ping-socket wire format" (IP header
-    # stripped from replies, ICMP id remapped by the kernel to a
-    # local-port-like value). That format is only guaranteed on Linux's
-    # dedicated ping-socket. On macOS, SOCK_DGRAM/IPPROTO_ICMP avoids
-    # requiring root, but its wire behavior is otherwise identical to
-    # SOCK_RAW: replies still include the IPv4 header and the ICMP id is
-    # echoed back verbatim rather than remapped. So callers must treat a
-    # macOS DGRAM socket like RAW for parsing/matching purposes, hence
-    # dgram: false below despite SOCK_DGRAM being used. See
-    # docs/superpowers/specs for the platform policy this implements.
+    # Opens the ICMP socket to use for this ping, returning
+    # [socket, header_stripped]. header_stripped reports whether replies on
+    # this socket use Linux's ping-socket wire format (IPv4 header
+    # stripped, ICMP id remapped by the kernel) -- true only for a
+    # successful Linux SOCK_DGRAM socket. macOS's unprivileged SOCK_DGRAM
+    # socket behaves like RAW on the wire, so it reports false.
     #
     def create_socket(
       platform: self.class.host_platform,
-      privileged: self.class.privileged_for_raw?,
+      privileged: nil,
       socket_factory: method(:new_icmp_socket)
     )
       case platform
@@ -255,8 +252,10 @@ module Net
         when :linux
           begin
             [socket_factory.call(Socket::SOCK_DGRAM), true]
-          rescue Errno::EACCES, Errno::EPERM
-            if privileged
+          rescue SystemCallError
+            effective_privileged = privileged.nil? ? self.class.privileged_for_raw? : privileged
+
+            if effective_privileged
               [socket_factory.call(Socket::SOCK_RAW), false]
             else
               raise StandardError,

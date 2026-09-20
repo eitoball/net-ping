@@ -1,9 +1,9 @@
 #######################################################################
 # test_net_ping_icmp.rb
 #
-# Test case for the Net::PingICMP class. You must run this test case
-# with root privileges on UNIX systems. This should be run via the
-# 'test' or 'test:icmp' Rake task.
+# Test case for the Net::PingICMP class. Root privileges are only
+# required on platforms other than macOS/Linux. This should be run via
+# the 'test' or 'test:icmp' Rake task.
 #######################################################################
 require 'test-unit'
 require 'net/ping/icmp'
@@ -26,9 +26,31 @@ class TC_PingICMP < Test::Unit::TestCase
     @@jruby = RUBY_PLATFORM == 'java'
   end
 
+  # Returns true if the current process's group is within Linux's
+  # net.ipv4.ping_group_range, and so can be expected to successfully
+  # open an unprivileged DGRAM ICMP socket. Not meaningful (and not
+  # checked) on other platforms.
+  #
+  def linux_ping_group_range_permits_current_process?
+    return true unless File.readable?('/proc/sys/net/ipv4/ping_group_range')
+
+    min, max = File.read('/proc/sys/net/ipv4/ping_group_range').split.map(&:to_i)
+    Process.gid.between?(min, max)
+  rescue StandardError
+    false
+  end
+
   def setup
     @host = '127.0.0.1' # 'localhost'
     @icmp = Net::Ping::ICMP.new(@host)
+
+    if Net::Ping::ICMP.host_platform == :linux && !Net::Ping::ICMP.privileged_for_raw?
+      omit_unless(
+        linux_ping_group_range_permits_current_process?,
+        "requires this user's group to be within net.ipv4.ping_group_range, or root/CAP_NET_RAW"
+      )
+    end
+
     @concurrency = 2
   end
 
@@ -61,14 +83,15 @@ class TC_PingICMP < Test::Unit::TestCase
     omit_unless([:macos, :linux].include?(platform), "DGRAM is only expected on macos/linux")
 
     icmp = Net::Ping::ICMP.new(@host)
-    socket, _dgram = icmp.send(:create_socket)
+    socket, _header_stripped = icmp.send(:create_socket)
     socket_type = socket.getsockopt(Socket::SOL_SOCKET, Socket::SO_TYPE).int
     socket.close
 
-    # Note: the second value returned by create_socket ("dgram") is NOT
-    # "is this a SOCK_DGRAM socket" -- see the comment above
+    # header_stripped (the second value returned by create_socket) tracks
+    # wire framing, not socket type -- see the comment above
     # Net::Ping::ICMP#create_socket. It is false on macOS even though a
-    # real SOCK_DGRAM socket is opened, so we check socket.type directly.
+    # real SOCK_DGRAM socket is opened, so we check the socket's actual
+    # SO_TYPE via getsockopt instead.
     assert_equal(Socket::SOCK_DGRAM, socket_type, "expected a DGRAM socket on #{platform}")
   end
 

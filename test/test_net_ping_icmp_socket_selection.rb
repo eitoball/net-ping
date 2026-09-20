@@ -40,7 +40,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     icmp_header = [0, 0, 0, 4321, 7].pack('C2 n3')
     data = ip_header + icmp_header
 
-    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: false)
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, header_stripped: false)
 
     assert_equal(0, type)     # ICMP_ECHOREPLY
     assert_equal(4321, ping_id)
@@ -50,7 +50,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
   test "parse_reply reads a DGRAM echo reply (no IP header prefix)" do
     icmp_header = [0, 0, 0, 4321, 7].pack('C2 n3')
 
-    type, ping_id, seq = Net::Ping::ICMP.parse_reply(icmp_header, dgram: true)
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(icmp_header, header_stripped: true)
 
     assert_equal(0, type)
     assert_equal(4321, ping_id)
@@ -70,7 +70,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     data << [4321, 7].pack('n2')
     data << "\x00" * 4
 
-    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: false)
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, header_stripped: false)
 
     assert_equal(3, type)
     assert_equal(4321, ping_id)
@@ -88,7 +88,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     data << [4321, 7].pack('n2')
     data << "\x00" * 4
 
-    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: true)
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, header_stripped: true)
 
     assert_equal(3, type)
     assert_equal(4321, ping_id)
@@ -96,7 +96,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
   end
 
   test "parse_reply returns nil id/seq when the reply is too short" do
-    type, ping_id, seq = Net::Ping::ICMP.parse_reply("\x00" * 21, dgram: false)
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply("\x00" * 21, header_stripped: false)
 
     assert_equal(0, type)
     assert_nil(ping_id)
@@ -143,40 +143,38 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ type }
 
-    socket, dgram = icmp.send(
+    socket, header_stripped = icmp.send(
       :create_socket, platform: :macos, privileged: false, socket_factory: factory
     )
 
     assert_equal(Socket::SOCK_DGRAM, socket)
-    # macOS's unprivileged SOCK_DGRAM/IPPROTO_ICMP socket only relaxes the
-    # root requirement; on the wire it behaves like SOCK_RAW (IP header
-    # not stripped, ICMP id not remapped by the kernel), so dgram must be
-    # false here -- this is not a copy-paste mistake.
-    assert_false(dgram)
+    # A real SOCK_DGRAM socket is opened, but its wire framing matches RAW
+    # (IP header not stripped, ICMP id not remapped by the kernel).
+    assert_false(header_stripped)
   end
 
   test "create_socket uses DGRAM on linux when it succeeds" do
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ type }
 
-    socket, dgram = icmp.send(
+    socket, header_stripped = icmp.send(
       :create_socket, platform: :linux, privileged: false, socket_factory: factory
     )
 
     assert_equal(Socket::SOCK_DGRAM, socket)
-    assert_true(dgram)
+    assert_true(header_stripped)
   end
 
   test "create_socket falls back to RAW on linux when DGRAM fails and privileged" do
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ raise Errno::EACCES if type == Socket::SOCK_DGRAM; type }
 
-    socket, dgram = icmp.send(
+    socket, header_stripped = icmp.send(
       :create_socket, platform: :linux, privileged: true, socket_factory: factory
     )
 
     assert_equal(Socket::SOCK_RAW, socket)
-    assert_false(dgram)
+    assert_false(header_stripped)
   end
 
   test "create_socket raises on linux when DGRAM fails and unprivileged" do
@@ -193,23 +191,23 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ type }
 
-    socket, dgram = icmp.send(
+    socket, header_stripped = icmp.send(
       :create_socket, platform: :windows, privileged: true, socket_factory: factory
     )
 
     assert_equal(Socket::SOCK_RAW, socket)
-    assert_false(dgram)
+    assert_false(header_stripped)
   end
 
   test "create_socket uses RAW on other unix platforms" do
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ type }
 
-    socket, dgram = icmp.send(
+    socket, header_stripped = icmp.send(
       :create_socket, platform: :other, privileged: true, socket_factory: factory
     )
 
     assert_equal(Socket::SOCK_RAW, socket)
-    assert_false(dgram)
+    assert_false(header_stripped)
   end
 end
