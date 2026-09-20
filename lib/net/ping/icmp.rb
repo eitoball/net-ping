@@ -1,4 +1,5 @@
 require File.join(File.dirname(__FILE__), 'ping')
+require 'rbconfig'
 
 if File::ALT_SEPARATOR
   require 'win32/security'
@@ -22,6 +23,25 @@ module Net
     # default size is 56.
     #
     attr_reader :data_size
+
+    # Returns a symbol describing which ICMP socket strategy to use for
+    # the current platform: :windows, :macos, :linux, or :other.
+    #
+    # The arguments exist purely so tests can exercise every branch
+    # without needing to run on every platform.
+    #
+    def self.host_platform(host_os = RbConfig::CONFIG['host_os'], windows = !!File::ALT_SEPARATOR)
+      return :windows if windows
+
+      case host_os
+        when /darwin/i
+          :macos
+        when /linux/i
+          :linux
+        else
+          :other
+      end
+    end
 
     # Creates and returns a new Ping::ICMP object.  This is similar to its
     # superclass constructor, but must be created with root privileges (on

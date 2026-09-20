@@ -161,6 +161,12 @@ namespace 'test' do
      t.test_files = FileList['test/test_net_ping_icmp.rb']
   end
 
+  Rake::TestTask.new('icmp_socket_selection') do |t|
+     t.warning = true
+     t.verbose = true
+     t.test_files = FileList['test/test_net_ping_icmp_socket_selection.rb']
+  end
+
   Rake::TestTask.new('tcp') do |t|
      t.warning = true
      t.verbose = true
