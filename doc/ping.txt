@@ -48,7 +48,10 @@
    All Ping classes are children of the Ping parent class (which should
    never be instantiated directly).
 
-   The Ping::ICMP class requires root/administrative privileges.
+   The Ping::ICMP class does not require root/administrative privileges
+   on macOS or Linux (with a suitable net.ipv4.ping_group_range). Root
+   privileges (or CAP_NET_RAW) are only needed as a Linux fallback, or
+   unconditionally on Windows and other UNIX platforms.
 
    The Ping::WMI class only works on MS Windows.
 
