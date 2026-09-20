@@ -2,35 +2,31 @@
 # test_net_ping.rb
 #
 # Test suite for all the Ping subclasses. Note that the Ping::ICMP
-# class test won't be run unless this is run as a privileged process.
+# integration test only requires a privileged process on platforms
+# other than macOS/Linux; see the require guard below.
 ######################################################################
+require 'net/ping/icmp'
 require 'test_net_ping_external'
 require 'test_net_ping_gem_packaging'
 require 'test_net_ping_http'
+require 'test_net_ping_icmp_socket_selection'
 require 'test_net_ping_tcp'
 require 'test_net_ping_udp'
 
-if File::ALT_SEPARATOR
+# SOCK_DGRAM ICMP sockets don't require elevated privileges on macOS or
+# Linux, so the real ICMP integration tests only need to be gated behind
+# a privilege check on Windows and other/unverified UNIX platforms. This
+# mirrors the guard at the top of test_net_ping_icmp.rb itself.
+if Net::Ping::ICMP.host_platform == :windows
   require 'win32/security'
 
   if Win32::Security.elevated_security?
     require 'test_net_ping_icmp'
   end
-else
-  # If cap2 is availble, check if we are root, or our process has net_raw,
-  # then include ICMP tests
-  begin
-    require 'cap2'
-    current_process = Cap2.process
-    if Process.euid == 0 \
-      || current_process.permitted?(:net_raw) \
-      && current_process.enabled?(:net_raw)
-      require 'test_net_ping_icmp'
-    end
-  rescue LoadError
-    # If we don't have cap2, include ICMP tests if we are root
-    require 'test_net_ping_icmp' if Process.euid == 0
-  end
+elsif [:macos, :linux].include?(Net::Ping::ICMP.host_platform)
+  require 'test_net_ping_icmp'
+elsif Net::Ping::ICMP.privileged_for_raw?
+  require 'test_net_ping_icmp'
 end
 
 if File::ALT_SEPARATOR
