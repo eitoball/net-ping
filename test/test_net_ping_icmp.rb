@@ -9,30 +9,16 @@ require 'test-unit'
 require 'net/ping/icmp'
 require 'thread'
 
-if File::ALT_SEPARATOR
+if Net::Ping::ICMP.host_platform == :windows
   require 'win32/security'
 
   unless Win32::Security.elevated_security?
     raise "The test:icmp task must be run with elevated security rights"
   end
-else
-
-  begin
-    # If we have cap2; raise error unless we are root, or have net_raw
-    require 'cap2'
-    current_process = Cap2.process
-    unless Process.euid == 0 \
-      || current_process.permitted?(:net_raw) \
-      && current_process.enabled?(:net_raw)
-      raise StandardError, 'requires root privileges or setcap net_raw'
-    end
-  rescue LoadError
-    # Without cap2; raise error unless we are root
-    unless Process.euid == 0
-      raise StandardError, 'requires root privileges or setcap net_raw'
-    end
+elsif ![:macos, :linux].include?(Net::Ping::ICMP.host_platform)
+  unless Net::Ping::ICMP.privileged_for_raw?
+    raise StandardError, 'requires root privileges or setcap net_raw'
   end
-
 end
 
 class TC_PingICMP < Test::Unit::TestCase
@@ -67,6 +53,23 @@ class TC_PingICMP < Test::Unit::TestCase
     omit_if(@@jruby)
     assert_true(Net::Ping::ICMP.new(@host).ping?)
     assert_true(Net::Ping::ICMP.new('127.0.0.1').ping?)
+  end
+
+  test "icmp ping of local host uses a DGRAM socket on macos and linux" do
+    omit_if(@@jruby)
+    platform = Net::Ping::ICMP.host_platform
+    omit_unless([:macos, :linux].include?(platform), "DGRAM is only expected on macos/linux")
+
+    icmp = Net::Ping::ICMP.new(@host)
+    socket, _dgram = icmp.send(:create_socket)
+    socket_type = socket.getsockopt(Socket::SOL_SOCKET, Socket::SO_TYPE).int
+    socket.close
+
+    # Note: the second value returned by create_socket ("dgram") is NOT
+    # "is this a SOCK_DGRAM socket" -- see the comment above
+    # Net::Ping::ICMP#create_socket. It is false on macOS even though a
+    # real SOCK_DGRAM socket is opened, so we check socket.type directly.
+    assert_equal(Socket::SOCK_DGRAM, socket_type, "expected a DGRAM socket on #{platform}")
   end
 
   test "threaded icmp ping returns expected results" do
