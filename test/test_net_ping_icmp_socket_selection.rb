@@ -25,4 +25,13 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
   test "host_platform returns :other for unrecognized host_os strings" do
     assert_equal(:other, Net::Ping::ICMP.host_platform('freebsd13', false))
   end
+
+  test "privileged_for_raw? is true when euid is 0" do
+    assert_true(Net::Ping::ICMP.privileged_for_raw?(euid: 0))
+  end
+
+  test "privileged_for_raw? is false for a non-root euid without cap2" do
+    omit_if(defined?(Cap2), "cap2 is installed; the outcome depends on its capability report")
+    assert_false(Net::Ping::ICMP.privileged_for_raw?(euid: 501))
+  end
 end

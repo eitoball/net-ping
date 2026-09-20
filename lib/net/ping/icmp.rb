@@ -43,6 +43,23 @@ module Net
       end
     end
 
+    # Returns true if the current process is allowed to open a SOCK_RAW
+    # ICMP socket: either it's running as root, or (on platforms with the
+    # optional cap2 gem available) it holds an enabled CAP_NET_RAW
+    # capability.
+    #
+    def self.privileged_for_raw?(euid: Process.euid)
+      begin
+        require 'cap2'
+        current_process = Cap2.process
+        euid == 0 \
+          || current_process.permitted?(:net_raw) \
+          && current_process.enabled?(:net_raw)
+      rescue LoadError
+        euid == 0
+      end
+    end
+
     # Creates and returns a new Ping::ICMP object.  This is similar to its
     # superclass constructor, but must be created with root privileges (on
     # UNIX systems), and the port value is ignored.
