@@ -145,11 +145,7 @@ module Net
       super(host)
       bool = false
 
-      socket = Socket.new(
-        Socket::PF_INET,
-        Socket::SOCK_RAW,
-        Socket::IPPROTO_ICMP
-      )
+      socket, dgram = create_socket
 
       if @bind_host
         saddr = Socket.pack_sockaddr_in(@bind_port, @bind_host)
@@ -177,6 +173,11 @@ module Net
 
       socket.send(msg, 0, saddr) # Send the message
 
+      # On a DGRAM socket the kernel overwrites the ICMP identifier with
+      # the socket's assigned local port; @ping_id is only meaningful on
+      # RAW sockets, where we chose it ourselves.
+      expected_id = dgram ? socket.local_address.ip_port : @ping_id
+
       begin
         Timeout.timeout(@timeout){
           while true
@@ -187,24 +188,10 @@ module Net
               return false
             end
 
-            ping_id = nil
-            seq = nil
-
             data = socket.recvfrom(1500).first
-            type = data[20, 2].unpack('C2').first
+            type, ping_id, seq = self.class.parse_reply(data, dgram: dgram)
 
-            case type
-              when ICMP_ECHOREPLY
-                if data.length >= 28
-                  ping_id, seq = data[24, 4].unpack('n3')
-                end
-              else
-                if data.length > 56
-                  ping_id, seq = data[52, 4].unpack('n3')
-                end
-            end
-
-            if ping_id == @ping_id && seq == @seq && type == ICMP_ECHOREPLY
+            if ping_id == expected_id && seq == @seq && type == ICMP_ECHOREPLY
               bool = true
               break
             end
