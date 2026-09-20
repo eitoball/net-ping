@@ -14,6 +14,7 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
     @uri = 'http://www.google.com/index.html'
     @uri_without_query = 'https://play.google.com/store/apps/details'
     @uri_with_query = 'https://play.google.com/store/apps/details?id=com.google.android.googlequicksearchbox'
+    @uri_empty_path_with_query = 'http://empty-path-query.com?foo=bar'
 
     @uri_https = 'https://encrypted.google.com'
     @uri_http_domain = 'http.com'
@@ -26,6 +27,7 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
     stub_request(:head, @uri).to_return(body: "PONG")
     stub_request(:get, @uri_with_query).to_return(body: "PONG")
     stub_request(:head, @uri_with_query).to_return(body: "PONG")
+    stub_request(:head, "http://empty-path-query.com/?foo=bar").to_return(body: "PONG")
     stub_request(:head, @uri_https).to_return(body: "PONG")
     stub_request(:get, @uri_https).to_return(body: "PONG")
     stub_request(:get, "http://#{@uri_http_domain}").to_return(body: "PONG")
@@ -245,6 +247,12 @@ class TC_Net_Ping_HTTP < Test::Unit::TestCase
 
     @http = Net::Ping::HTTP.new(@uri_with_query)
     assert_true(@http.ping)
+  end
+
+  test 'ping preserves query string when the path is empty' do
+    @http = Net::Ping::HTTP.new(@uri_empty_path_with_query)
+    assert_true(@http.ping)
+    assert_requested(:head, "http://empty-path-query.com/?foo=bar")
   end
 
   test 'ping with http proxy' do
