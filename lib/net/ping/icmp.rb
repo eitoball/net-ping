@@ -60,6 +60,32 @@ module Net
       end
     end
 
+    # Extracts [type, ping_id, seq] from a raw ICMP reply payload as
+    # returned by Socket#recvfrom. RAW sockets receive the IPv4 header
+    # in front of the ICMP message; DGRAM sockets don't, so the offsets
+    # shift back by the 20-byte IPv4 header size.
+    #
+    def self.parse_reply(data, dgram: false)
+      type_offset, id_offset, error_id_offset = dgram ? [0, 4, 32] : [20, 24, 52]
+
+      type = data[type_offset, 2].unpack('C2').first
+      ping_id = nil
+      seq = nil
+
+      case type
+        when ICMP_ECHOREPLY
+          if data.length >= id_offset + 4
+            ping_id, seq = data[id_offset, 4].unpack('n3')
+          end
+        else
+          if data.length > error_id_offset + 4
+            ping_id, seq = data[error_id_offset, 4].unpack('n3')
+          end
+      end
+
+      [type, ping_id, seq]
+    end
+
     # Creates and returns a new Ping::ICMP object.  This is similar to its
     # superclass constructor, but must be created with root privileges (on
     # UNIX systems), and the port value is ignored.

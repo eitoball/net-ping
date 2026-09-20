@@ -34,4 +34,72 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     omit_if(defined?(Cap2), "cap2 is installed; the outcome depends on its capability report")
     assert_false(Net::Ping::ICMP.privileged_for_raw?(euid: 501))
   end
+
+  test "parse_reply reads a RAW echo reply (20-byte IP header prefix)" do
+    ip_header = "\x00" * 20
+    icmp_header = [0, 0, 0, 4321, 7].pack('C2 n3')
+    data = ip_header + icmp_header
+
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: false)
+
+    assert_equal(0, type)     # ICMP_ECHOREPLY
+    assert_equal(4321, ping_id)
+    assert_equal(7, seq)
+  end
+
+  test "parse_reply reads a DGRAM echo reply (no IP header prefix)" do
+    icmp_header = [0, 0, 0, 4321, 7].pack('C2 n3')
+
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(icmp_header, dgram: true)
+
+    assert_equal(0, type)
+    assert_equal(4321, ping_id)
+    assert_equal(7, seq)
+  end
+
+  test "parse_reply reads id/seq from an embedded packet on a RAW error reply" do
+    # 20-byte outer IP header + 8-byte outer ICMP header (type 3 = unreachable,
+    # code, checksum, 4-byte unused/pointer) + 20-byte embedded original IP
+    # header + embedded ICMP header (type, code, checksum, then id/seq at
+    # absolute offset 52) + 4 bytes padding so data.length > 56.
+    data = "\x00" * 20
+    data << [3, 0, 0].pack('C2 n')
+    data << "\x00" * 4
+    data << "\x00" * 20
+    data << [8, 0, 0].pack('C2 n')
+    data << [4321, 7].pack('n2')
+    data << "\x00" * 4
+
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: false)
+
+    assert_equal(3, type)
+    assert_equal(4321, ping_id)
+    assert_equal(7, seq)
+  end
+
+  test "parse_reply reads id/seq from an embedded packet on a DGRAM error reply" do
+    # No outer IP header on DGRAM: 8-byte outer ICMP header + 20-byte
+    # embedded original IP header + embedded ICMP header (id/seq at
+    # absolute offset 32) + 4 bytes padding so data.length > 36.
+    data = [3, 0, 0].pack('C2 n')
+    data << "\x00" * 4
+    data << "\x00" * 20
+    data << [8, 0, 0].pack('C2 n')
+    data << [4321, 7].pack('n2')
+    data << "\x00" * 4
+
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply(data, dgram: true)
+
+    assert_equal(3, type)
+    assert_equal(4321, ping_id)
+    assert_equal(7, seq)
+  end
+
+  test "parse_reply returns nil id/seq when the reply is too short" do
+    type, ping_id, seq = Net::Ping::ICMP.parse_reply("\x00" * 21, dgram: false)
+
+    assert_equal(0, type)
+    assert_nil(ping_id)
+    assert_nil(seq)
+  end
 end
