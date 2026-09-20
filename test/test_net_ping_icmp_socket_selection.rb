@@ -139,7 +139,7 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     assert_nothing_raised{ FakePrivilegedOtherUnixICMP.new('127.0.0.1') }
   end
 
-  test "create_socket uses DGRAM on macos" do
+  test "create_socket uses DGRAM on macos but reports RAW-style framing" do
     icmp = Net::Ping::ICMP.allocate
     factory = ->(type){ type }
 
@@ -148,7 +148,11 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
     )
 
     assert_equal(Socket::SOCK_DGRAM, socket)
-    assert_true(dgram)
+    # macOS's unprivileged SOCK_DGRAM/IPPROTO_ICMP socket only relaxes the
+    # root requirement; on the wire it behaves like SOCK_RAW (IP header
+    # not stripped, ICMP id not remapped by the kernel), so dgram must be
+    # false here -- this is not a copy-paste mistake.
+    assert_false(dgram)
   end
 
   test "create_socket uses DGRAM on linux when it succeeds" do

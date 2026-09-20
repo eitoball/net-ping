@@ -230,9 +230,17 @@ module Net
     end
 
     # Opens the ICMP socket to use for this ping, returning [socket, dgram]
-    # where dgram is true if a SOCK_DGRAM socket was opened (false for
-    # SOCK_RAW). See docs/superpowers/specs for the platform policy this
-    # implements.
+    # where dgram is NOT simply "is this a SOCK_DGRAM socket" -- it means
+    # "does this socket use the Linux ping-socket wire format" (IP header
+    # stripped from replies, ICMP id remapped by the kernel to a
+    # local-port-like value). That format is only guaranteed on Linux's
+    # dedicated ping-socket. On macOS, SOCK_DGRAM/IPPROTO_ICMP avoids
+    # requiring root, but its wire behavior is otherwise identical to
+    # SOCK_RAW: replies still include the IPv4 header and the ICMP id is
+    # echoed back verbatim rather than remapped. So callers must treat a
+    # macOS DGRAM socket like RAW for parsing/matching purposes, hence
+    # dgram: false below despite SOCK_DGRAM being used. See
+    # docs/superpowers/specs for the platform policy this implements.
     #
     def create_socket(
       platform: self.class.host_platform,
@@ -241,7 +249,9 @@ module Net
     )
       case platform
         when :macos
-          [socket_factory.call(Socket::SOCK_DGRAM), true]
+          # Real SOCK_DGRAM socket (no root required), but RAW-style
+          # wire framing -- see comment above create_socket.
+          [socket_factory.call(Socket::SOCK_DGRAM), false]
         when :linux
           begin
             [socket_factory.call(Socket::SOCK_DGRAM), true]
