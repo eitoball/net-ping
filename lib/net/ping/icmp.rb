@@ -241,5 +241,39 @@ module Net
       check = (check >> 16) + (check & 0xffff)
       return (~((check >> 16) + check) & 0xffff)
     end
+
+    # Opens the ICMP socket to use for this ping, returning [socket, dgram]
+    # where dgram is true if a SOCK_DGRAM socket was opened (false for
+    # SOCK_RAW). See docs/superpowers/specs for the platform policy this
+    # implements.
+    #
+    def create_socket(
+      platform: self.class.host_platform,
+      privileged: self.class.privileged_for_raw?,
+      socket_factory: method(:new_icmp_socket)
+    )
+      case platform
+        when :macos
+          [socket_factory.call(Socket::SOCK_DGRAM), true]
+        when :linux
+          begin
+            [socket_factory.call(Socket::SOCK_DGRAM), true]
+          rescue Errno::EACCES, Errno::EPERM
+            if privileged
+              [socket_factory.call(Socket::SOCK_RAW), false]
+            else
+              raise StandardError,
+                "requires root privileges, setcap net_raw, or a " \
+                "net.ipv4.ping_group_range that includes this user's group"
+            end
+          end
+        else
+          [socket_factory.call(Socket::SOCK_RAW), false]
+      end
+    end
+
+    def new_icmp_socket(type)
+      Socket.new(Socket::PF_INET, type, Socket::IPPROTO_ICMP)
+    end
   end
 end

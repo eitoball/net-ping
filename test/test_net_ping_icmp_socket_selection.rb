@@ -138,4 +138,74 @@ class TC_PingICMPSocketSelection < Test::Unit::TestCase
   test "initialize succeeds with privilege on other unix platforms" do
     assert_nothing_raised{ FakePrivilegedOtherUnixICMP.new('127.0.0.1') }
   end
+
+  test "create_socket uses DGRAM on macos" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ type }
+
+    socket, dgram = icmp.send(
+      :create_socket, platform: :macos, privileged: false, socket_factory: factory
+    )
+
+    assert_equal(Socket::SOCK_DGRAM, socket)
+    assert_true(dgram)
+  end
+
+  test "create_socket uses DGRAM on linux when it succeeds" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ type }
+
+    socket, dgram = icmp.send(
+      :create_socket, platform: :linux, privileged: false, socket_factory: factory
+    )
+
+    assert_equal(Socket::SOCK_DGRAM, socket)
+    assert_true(dgram)
+  end
+
+  test "create_socket falls back to RAW on linux when DGRAM fails and privileged" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ raise Errno::EACCES if type == Socket::SOCK_DGRAM; type }
+
+    socket, dgram = icmp.send(
+      :create_socket, platform: :linux, privileged: true, socket_factory: factory
+    )
+
+    assert_equal(Socket::SOCK_RAW, socket)
+    assert_false(dgram)
+  end
+
+  test "create_socket raises on linux when DGRAM fails and unprivileged" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ raise Errno::EACCES if type == Socket::SOCK_DGRAM; type }
+
+    error = assert_raise(StandardError) do
+      icmp.send(:create_socket, platform: :linux, privileged: false, socket_factory: factory)
+    end
+    assert_match(/ping_group_range/, error.message)
+  end
+
+  test "create_socket uses RAW on windows" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ type }
+
+    socket, dgram = icmp.send(
+      :create_socket, platform: :windows, privileged: true, socket_factory: factory
+    )
+
+    assert_equal(Socket::SOCK_RAW, socket)
+    assert_false(dgram)
+  end
+
+  test "create_socket uses RAW on other unix platforms" do
+    icmp = Net::Ping::ICMP.allocate
+    factory = ->(type){ type }
+
+    socket, dgram = icmp.send(
+      :create_socket, platform: :other, privileged: true, socket_factory: factory
+    )
+
+    assert_equal(Socket::SOCK_RAW, socket)
+    assert_false(dgram)
+  end
 end
