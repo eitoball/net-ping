@@ -1,4 +1,5 @@
 require File.join(File.dirname(__FILE__), 'ping')
+require 'rbconfig'
 
 if File::ALT_SEPARATOR
   require 'win32/security'
@@ -23,31 +24,89 @@ module Net
     #
     attr_reader :data_size
 
-    # Creates and returns a new Ping::ICMP object.  This is similar to its
-    # superclass constructor, but must be created with root privileges (on
-    # UNIX systems), and the port value is ignored.
+    # Returns a symbol describing which ICMP socket strategy to use for
+    # the current platform: :windows, :macos, :linux, or :other.
     #
-    def initialize(host=nil, port=nil, timeout=5)
+    # The arguments exist purely so tests can exercise every branch
+    # without needing to run on every platform.
+    #
+    def self.host_platform(host_os = RbConfig::CONFIG['host_os'], windows = !!File::ALT_SEPARATOR)
+      return :windows if windows
+
+      case host_os
+        when /darwin/i
+          :macos
+        when /linux/i
+          :linux
+        else
+          :other
+      end
+    end
+
+    # Returns true if the current process is allowed to open a SOCK_RAW
+    # ICMP socket: either it's running as root, or (on platforms with the
+    # optional cap2 gem available) it holds an enabled CAP_NET_RAW
+    # capability.
+    #
+    def self.privileged_for_raw?(euid: Process.euid)
       begin
-        # If we have cap2, but not are root, or have net_raw, raise an error
         require 'cap2'
         current_process = Cap2.process
-        unless Process.euid == 0 \
+        euid == 0 \
           || current_process.permitted?(:net_raw) \
           && current_process.enabled?(:net_raw)
-          raise StandardError, 'requires root privileges or setcap net_raw'
-        end
       rescue LoadError
-        # Without cap2, raise error if we are not root
-        unless Process.euid == 0
-          raise StandardError, 'requires root privileges or setcap net_raw'
-        end
+        euid == 0
+      end
+    end
+
+    # Extracts [type, ping_id, seq] from a raw ICMP reply payload as
+    # returned by Socket#recvfrom. When the reply came off a socket using
+    # Linux's ping-socket wire format, the IPv4 header is stripped, so the
+    # offsets shift back by the 20-byte IPv4 header size.
+    #
+    def self.parse_reply(data, header_stripped: false)
+      type_offset, id_offset, error_id_offset = header_stripped ? [0, 4, 32] : [20, 24, 52]
+
+      type = data[type_offset, 2].unpack('C2').first
+      ping_id = nil
+      seq = nil
+
+      case type
+        when ICMP_ECHOREPLY
+          if data.length >= id_offset + 4
+            ping_id, seq = data[id_offset, 4].unpack('n3')
+          end
+        else
+          if data.length > error_id_offset + 4
+            ping_id, seq = data[error_id_offset, 4].unpack('n3')
+          end
       end
 
-      if File::ALT_SEPARATOR
-        unless Win32::Security.elevated_security?
-          raise 'requires elevated security'
-        end
+      [type, ping_id, seq]
+    end
+
+    # Creates and returns a new Ping::ICMP object.  This is similar to its
+    # superclass constructor, but the port value is ignored. Root privileges
+    # (or CAP_NET_RAW) are not required on macOS or Linux (with a suitable
+    # net.ipv4.ping_group_range); they're only needed as a Linux fallback,
+    # or unconditionally on Windows and other/unverified UNIX platforms.
+    #
+    def initialize(host=nil, port=nil, timeout=5)
+      case self.class.host_platform
+        when :windows
+          unless Win32::Security.elevated_security?
+            raise 'requires elevated security'
+          end
+        when :macos, :linux
+          # SOCK_DGRAM ICMP sockets don't require elevated privileges on
+          # these platforms. If a SOCK_RAW fallback turns out to be
+          # necessary (Linux only), the privilege check happens lazily
+          # in create_socket instead.
+        else
+          unless self.class.privileged_for_raw?
+            raise StandardError, 'requires root privileges or setcap net_raw'
+          end
       end
 
       @seq = 0
@@ -88,11 +147,7 @@ module Net
       super(host)
       bool = false
 
-      socket = Socket.new(
-        Socket::PF_INET,
-        Socket::SOCK_RAW,
-        Socket::IPPROTO_ICMP
-      )
+      socket, header_stripped = create_socket
 
       if @bind_host
         saddr = Socket.pack_sockaddr_in(@bind_port, @bind_host)
@@ -120,6 +175,12 @@ module Net
 
       socket.send(msg, 0, saddr) # Send the message
 
+      # On a socket using Linux's ping-socket wire format, the kernel
+      # overwrites the ICMP identifier with the socket's assigned local
+      # port; @ping_id is only meaningful otherwise, where we chose it
+      # ourselves.
+      expected_id = header_stripped ? socket.local_address.ip_port : @ping_id
+
       begin
         Timeout.timeout(@timeout){
           while true
@@ -130,24 +191,10 @@ module Net
               return false
             end
 
-            ping_id = nil
-            seq = nil
-
             data = socket.recvfrom(1500).first
-            type = data[20, 2].unpack('C2').first
+            type, ping_id, seq = self.class.parse_reply(data, header_stripped: header_stripped)
 
-            case type
-              when ICMP_ECHOREPLY
-                if data.length >= 28
-                  ping_id, seq = data[24, 4].unpack('n3')
-                end
-              else
-                if data.length > 56
-                  ping_id, seq = data[52, 4].unpack('n3')
-                end
-            end
-
-            if ping_id == @ping_id && seq == @seq && type == ICMP_ECHOREPLY
+            if ping_id == expected_id && seq == @seq && type == ICMP_ECHOREPLY
               bool = true
               break
             end
@@ -183,6 +230,46 @@ module Net
 
       check = (check >> 16) + (check & 0xffff)
       return (~((check >> 16) + check) & 0xffff)
+    end
+
+    # Opens the ICMP socket to use for this ping, returning
+    # [socket, header_stripped]. header_stripped reports whether replies on
+    # this socket use Linux's ping-socket wire format (IPv4 header
+    # stripped, ICMP id remapped by the kernel) -- true only for a
+    # successful Linux SOCK_DGRAM socket. macOS's unprivileged SOCK_DGRAM
+    # socket behaves like RAW on the wire, so it reports false.
+    #
+    def create_socket(
+      platform: self.class.host_platform,
+      privileged: nil,
+      socket_factory: method(:new_icmp_socket)
+    )
+      case platform
+        when :macos
+          # Real SOCK_DGRAM socket (no root required), but RAW-style
+          # wire framing -- see comment above create_socket.
+          [socket_factory.call(Socket::SOCK_DGRAM), false]
+        when :linux
+          begin
+            [socket_factory.call(Socket::SOCK_DGRAM), true]
+          rescue SystemCallError
+            effective_privileged = privileged.nil? ? self.class.privileged_for_raw? : privileged
+
+            if effective_privileged
+              [socket_factory.call(Socket::SOCK_RAW), false]
+            else
+              raise StandardError,
+                "requires root privileges, setcap net_raw, or a " \
+                "net.ipv4.ping_group_range that includes this user's group"
+            end
+          end
+        else
+          [socket_factory.call(Socket::SOCK_RAW), false]
+      end
+    end
+
+    def new_icmp_socket(type)
+      Socket.new(Socket::PF_INET, type, Socket::IPPROTO_ICMP)
     end
   end
 end
