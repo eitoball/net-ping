@@ -1,3 +1,8 @@
+== 2.2.0 - 22-Sep-2026
+* Add support for HTTP to ping URLs requiring a query parameter, carrying
+  forward #25 by Kenneth Perry (@thothonegan)
+  [#50](https://github.com/eitoball/net-ping/pull/50).
+
 == 2.1.1 - 16-Aug-2026
 * Fix the license format in net-ping.gemspec to use the SPDX identifier
   "Artistic-2.0" [#47](https://github.com/eitoball/net-ping/pull/47).
