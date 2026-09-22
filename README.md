@@ -9,8 +9,9 @@ A collection of classes that provide different ways to ping computers.
   * webmock (test only)
   * test-unit (test only)
 
-  Ruby users should use Ruby 1.9.3 or later.
-  JRuby users should use JRuby 1.6.7 or later.
+  CI covers the following versions:
+  * Ruby: 4.0, 3.4, 3.3, 3.2, 3.1, 3.0, 2.7
+  * JRuby: 10.1, 10.0
 
 ## Installation
   ```gem install net-ping```

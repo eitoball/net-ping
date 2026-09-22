@@ -84,13 +84,23 @@ module Net
       end
 
       start_time = Time.now
+      deadline   = start_time + @timeout
 
       begin
-        Timeout.timeout(@timeout){
-          udp.connect(host, @port)
-          udp.send(@data, 0)
-          array = udp.recvfrom(MAX_DATA)
-        }
+        udp.connect(host, @port)
+        udp.send(@data, 0)
+
+        # Timeout.timeout relies on interrupting the blocking recvfrom
+        # call, which JRuby does not honor. Wait for readability with
+        # select instead, which enforces the timeout at the OS level.
+        # The remaining time (rather than the full @timeout) is used so
+        # that time already spent on connect/send still counts against
+        # the deadline.
+        remaining = deadline - Time.now
+        raise Timeout::Error if remaining <= 0
+        raise Timeout::Error unless select([udp], nil, nil, remaining)
+
+        array = udp.recvfrom(MAX_DATA)
       rescue Errno::ECONNREFUSED, Errno::ECONNRESET => err
         if @@service_check
           @exception = err
