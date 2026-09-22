@@ -1,0 +1,41 @@
+module Net
+  class Ping
+    class HTTP < Ping
+      attr_accessor follow_redirect: bool
+
+      attr_accessor redirect_limit: Integer
+
+      attr_accessor user_agent: String?
+
+      attr_accessor ssl_verify_mode: Integer
+
+      attr_accessor get_request: bool
+
+      attr_accessor proxied: bool?
+
+      attr_reader code: String?
+
+      # Narrower than the inherited `(Integer | String)?`: `ping` calls `port.to_i`
+      # on this value (lib/net/ping/http.rb:89-90), so a service-name string such as
+      # "https" silently becomes port 0 instead of being resolved, unlike TCP/UDP/ICMP
+      # which pass the port through to socket APIs that resolve service names.
+      attr_accessor port: Integer?
+
+      def initialize: (?String? uri, ?Integer? port, ?Numeric timeout) ?{ (self) -> void } -> void
+
+      def ping: (?String? host) -> bool
+
+      alias follow_redirect? follow_redirect
+
+      alias uri host
+
+      alias uri= host=
+
+      private
+
+      def redirect?: (Net::HTTPResponse? response) -> bool?
+
+      def do_ping: (URI::Generic uri, Integer? port) -> Net::HTTPResponse?
+    end
+  end
+end

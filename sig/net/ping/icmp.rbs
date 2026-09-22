@@ -1,0 +1,28 @@
+module Net
+  class Ping
+    class ICMP < Ping
+      ICMP_ECHOREPLY: Integer
+
+      ICMP_ECHO: Integer
+
+      ICMP_SUBCODE: Integer
+
+      attr_reader data_size: Integer
+
+      def data_size=: (Integer size) -> Integer
+
+      def bind: (String host, ?Integer port) -> Integer
+
+      def ping: (?String? host) -> (Float | false | nil)
+
+      # Always raises NoMethodError: `undef_method :port=` in lib/net/ping/icmp.rb
+      # removes the writer inherited from Ping. RBS has no syntax to un-declare an
+      # inherited method, so this override documents the call as unreachable.
+      def port=: ((Integer | String)?) -> bot
+
+      private
+
+      def checksum: (String msg) -> Integer
+    end
+  end
+end

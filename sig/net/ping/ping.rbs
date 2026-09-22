@@ -1,0 +1,25 @@
+module Net
+  class Ping
+    attr_accessor host: String?
+
+    attr_accessor port: (Integer | String)?
+
+    attr_accessor timeout: Numeric
+
+    attr_reader exception: (Exception | String | singleton(Errno::ECONNREFUSED))?
+
+    attr_reader warning: String?
+
+    attr_reader duration: Float?
+
+    def initialize: (?String? host, ?(Integer | String)? port, ?Numeric timeout) ?{ (self) -> void } -> void
+
+    def ping: (?String? host) -> void
+
+    def ping6: (?String? host) -> void
+
+    def ping?: (?String? host) -> bool
+
+    alias pingecho ping
+  end
+end

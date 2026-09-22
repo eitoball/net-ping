@@ -1,0 +1,5 @@
+module Net
+  class Ping
+    VERSION: String
+  end
+end
