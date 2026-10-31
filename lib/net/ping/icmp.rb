@@ -1,7 +1,11 @@
 require File.join(File.dirname(__FILE__), 'ping')
 
 if File::ALT_SEPARATOR
-  require 'win32/security'
+  begin
+    require 'win32/security'
+  rescue LoadError => err
+    warn "Elevated-privilege detection is unavailable (#{err.message}). Run `gem install win32-security` to enable it."
+  end
 end
 
 # The Net module serves as a namespace only.
@@ -45,6 +49,10 @@ module Net
       end
 
       if File::ALT_SEPARATOR
+        unless defined?(Win32::Security)
+          raise LoadError, 'win32-security is required for elevated-privilege detection on Windows; run `gem install win32-security`'
+        end
+
         unless Win32::Security.elevated_security?
           raise 'requires elevated security'
         end
