@@ -67,31 +67,47 @@ module Net
           return false
         end
 
-        resp = IO.select(nil, [sock], nil, timeout)
+        begin
+          resp = IO.select(nil, [sock], nil, timeout)
 
-        if resp.nil? # Assume ECONNREFUSED if nil
-          if @@service_check
-            bool = true
-          else
-            bool = false
-            @exception = Errno::ECONNREFUSED
-          end
-        else
-          sockopt = sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_ERROR)
-
-          if sockopt.int != 0
-            if @@service_check && sockopt.int == Errno::ECONNREFUSED::Errno
+          if resp.nil? # Assume ECONNREFUSED if nil
+            if @@service_check
               bool = true
             else
               bool = false
-              @exception = SystemCallError.new(sockopt.int)
+              @exception = Errno::ECONNREFUSED
             end
           else
+            sockopt = sock.getsockopt(Socket::SOL_SOCKET, Socket::SO_ERROR)
+
+            if sockopt.int != 0
+              if @@service_check && sockopt.int == Errno::ECONNREFUSED::Errno
+                bool = true
+              else
+                bool = false
+                @exception = SystemCallError.new(sockopt.int)
+              end
+            else
+              bool = true
+            end
+          end
+        rescue SystemCallError, IOError => err
+          # JRuby raises directly out of IO.select when the connection
+          # is refused, instead of surfacing it via SO_ERROR like MRI does.
+          if @@service_check && err.is_a?(Errno::ECONNREFUSED)
             bool = true
+          else
+            bool = false
+            @exception = err
           end
         end
       ensure
-        sock.close if sock
+        # JRuby invalidates the socket's file descriptor as a side effect
+        # of the IO.select error above, so a subsequent close raises EBADF.
+        begin
+          sock.close if sock
+        rescue Errno::EBADF, IOError
+        end
       end
 
       # There is no duration if the ping failed

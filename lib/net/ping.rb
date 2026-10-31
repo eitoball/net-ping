@@ -20,5 +20,10 @@ rescue Errno::ENOENT
 end
 
 if File::ALT_SEPARATOR
-  require_relative 'ping/wmi'
+  begin
+    require_relative 'ping/wmi'
+  rescue LoadError => err
+    gem_name = RUBY_ENGINE == 'jruby' ? 'win32ole-ffi' : 'win32ole'
+    warn "Net::Ping::WMI is unavailable (#{err.message}). Run `gem install #{gem_name}` to enable it."
+  end
 end

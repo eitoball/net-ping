@@ -1,5 +1,12 @@
 require File.join(File.dirname(__FILE__), 'ping')
-require 'win32ole'
+
+# win32ole's C extension does not build on JRuby, so use the pure-Ruby
+# win32ole-ffi gem there instead.
+if RUBY_ENGINE == 'jruby'
+   require 'win32ole/ffi'
+else
+   require 'win32ole'
+end
 
 # The Net module serves as a namespace only.
 #

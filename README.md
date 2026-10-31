@@ -4,13 +4,14 @@ A collection of classes that provide different ways to ping computers.
 ## Prerequisites
   * ffi
   * win32-security (installed from the Windows gem artifact)
-  * win32ole (installed from the Windows gem artifact)
+  * win32ole (installed from the Windows gem artifact), or win32ole-ffi on JRuby
   * cap2 (installed from the Linux gem artifact)
   * webmock (test only)
   * test-unit (test only)
 
-  Ruby users should use Ruby 1.9.3 or later.
-  JRuby users should use JRuby 1.6.7 or later.
+  CI covers the following versions:
+  * Ruby: 4.0, 3.4, 3.3, 3.2, 3.1, 3.0, 2.7
+  * JRuby: 10.1, 10.0
 
 ## Installation
   ```gem install net-ping```
@@ -46,6 +47,14 @@ A collection of classes that provide different ways to ping computers.
 
   ICMP pings will not work with JRuby without some sort of third-party
   library support for raw sockets in Java, such as RockSaw.
+
+  WMI pings will not work on JRuby unless you separately `gem install
+  win32ole-ffi`. Without it, `require 'net/ping'` prints a warning and
+  leaves `Net::Ping::WMI` undefined, rather than raising. The published
+  net-ping gem can't declare this automatically: RubyGems' JRuby platform
+  tag doesn't distinguish Windows from other OSes, so there's no
+  platform-specific gemspec to attach a
+  Windows-only dependency to.
 
 ## License
   Artistic 2.0
