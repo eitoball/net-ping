@@ -22,13 +22,12 @@ Gem::Specification.new do |spec|
 
   spec.extra_rdoc_files  = ['README.md', 'CHANGES', 'doc/ping.txt']
 
-  # The TCP Ping class requires this for non-blocking sockets.
-  spec.required_ruby_version = ">= 1.9.3"
+  # Matches the lowest Ruby version covered by CI.
+  spec.required_ruby_version = ">= 2.7"
 
   spec.add_development_dependency('test-unit', '>= 0')
   spec.add_development_dependency('webmock', '>= 0')
   spec.add_development_dependency('rake', '>= 0')
-  spec.add_development_dependency('pry-byebug', '>= 0')
 
   spec.description = <<-EOF
     The net-ping library provides a ping interface for Ruby. It includes
