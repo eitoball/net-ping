@@ -70,6 +70,33 @@ class TC_Net_Ping_UDP < Test::Unit::TestCase
     assert_equal(5, @udp.timeout)
   end
 
+  test "a nil timeout disables the timeout instead of raising" do
+    @udp.timeout = nil
+    assert_nothing_raised{ @udp.ping? }
+  end
+
+  test "a zero timeout disables the timeout instead of failing immediately" do
+    @udp.timeout = 0
+    assert_true(@udp.ping?)
+  end
+
+  test "ping times out when the remote port never replies" do
+    silent_peer = UDPSocket.new
+    silent_peer.bind('127.0.0.1', 0)
+    port = silent_peer.addr[1]
+
+    udp = Net::Ping::UDP.new('127.0.0.1', port, 1)
+    start = Time.now
+    assert_false(udp.ping?)
+    elapsed = Time.now - start
+
+    assert_true(elapsed < 2.5, "Actual elapsed: #{elapsed}")
+    assert_kind_of(Timeout::Error, udp.exception)
+    assert_nil(udp.duration)
+  ensure
+    silent_peer.close if silent_peer
+  end
+
   test "exception basic functionality" do
     assert_respond_to(@udp, :exception)
   end

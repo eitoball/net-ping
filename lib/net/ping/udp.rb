@@ -85,12 +85,33 @@ module Net
 
       start_time = Time.now
 
+      # Process.clock_gettime(Process::CLOCK_MONOTONIC), rather than
+      # Time.now, so a wall-clock adjustment mid-ping can't shorten or
+      # extend the deadline. Matches Timeout.timeout's own treatment of
+      # nil/0 as "no timeout".
+      if @timeout && !@timeout.zero?
+        deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @timeout
+      end
+
       begin
-        Timeout.timeout(@timeout){
-          udp.connect(host, @port)
-          udp.send(@data, 0)
-          array = udp.recvfrom(MAX_DATA)
-        }
+        udp.connect(host, @port)
+        udp.send(@data, 0)
+
+        # Timeout.timeout relies on interrupting the blocking recvfrom
+        # call, which JRuby does not honor. Wait for readability with
+        # select instead, which enforces the timeout at the OS level.
+        # The remaining time (rather than the full @timeout) is used so
+        # that time already spent on connect/send still counts against
+        # the deadline.
+        if deadline
+          remaining = deadline - Process.clock_gettime(Process::CLOCK_MONOTONIC)
+          raise Timeout::Error if remaining <= 0
+          raise Timeout::Error unless select([udp], nil, nil, remaining)
+        else
+          select([udp])
+        end
+
+        array = udp.recvfrom(MAX_DATA)
       rescue Errno::ECONNREFUSED, Errno::ECONNRESET => err
         if @@service_check
           @exception = err
