@@ -1,0 +1,63 @@
+class Struct::PingStatus < Struct[untyped]
+  attr_accessor address: untyped
+
+  attr_accessor buffer_size: untyped
+
+  attr_accessor no_fragmentation: untyped
+
+  attr_accessor primary_address_resolution_status: untyped
+
+  attr_accessor protocol_address: untyped
+
+  attr_accessor protocol_address_resolved: untyped
+
+  attr_accessor record_route: untyped
+
+  attr_accessor reply_inconsistency: untyped
+
+  attr_accessor reply_size: untyped
+
+  attr_accessor resolve_address_names: untyped
+
+  attr_accessor response_time: untyped
+
+  attr_accessor response_time_to_live: untyped
+
+  attr_accessor route_record: untyped
+
+  attr_accessor route_record_resolved: untyped
+
+  attr_accessor source_route: untyped
+
+  attr_accessor source_route_type: untyped
+
+  attr_accessor status_code: untyped
+
+  attr_accessor timeout: untyped
+
+  attr_accessor timestamp_record: untyped
+
+  attr_accessor timestamp_record_address: untyped
+
+  attr_accessor timestamp_record_address_resolved: untyped
+
+  attr_accessor timestamp_route: untyped
+
+  attr_accessor time_to_live: untyped
+
+  attr_accessor type_of_service: untyped
+end
+
+module Net
+  class Ping
+    class WMI < Ping
+      # `PingStatus = Struct.new('PingStatus', ...)` both creates ::Struct::PingStatus
+      # (from the string name) and assigns it to this constant in the enclosing scope.
+      PingStatus: singleton(::Struct::PingStatus)
+
+      def ping: (?String? host, ?Hash[Symbol | String, untyped] options) -> Struct::PingStatus
+
+      def ping?: (?String? host, ?Hash[Symbol | String, untyped] options) -> bool
+    end
+  end
+end

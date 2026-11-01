@@ -180,4 +180,11 @@ namespace 'test' do
   end
 end
 
+namespace 'sig' do
+  desc 'Validate the RBS type signatures under sig/'
+  task :validate do
+    sh 'bundle exec rbs -I sig -r socket -r timeout -r open3 -r uri -r net-http -r openssl validate'
+  end
+end
+
 task :default => :test

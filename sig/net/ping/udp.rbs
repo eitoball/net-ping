@@ -1,0 +1,19 @@
+module Net
+  class Ping
+    class UDP < Ping
+      MAX_DATA: Integer
+
+      attr_reader data: String
+
+      def self.service_check: () -> bool
+
+      def self.service_check=: (bool) -> bool
+
+      def data=: (String string) -> String
+
+      def bind: (String host, Integer port) -> Integer
+
+      def ping: (?String? host) -> bool
+    end
+  end
+end

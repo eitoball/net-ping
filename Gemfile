@@ -17,3 +17,6 @@ gem 'cap2', '>= 0.2.2' if RUBY_PLATFORM =~ /linux/i
 
 # byebug's C extension does not build on JRuby.
 gem 'pry-byebug', '>= 0' unless RUBY_ENGINE == 'jruby'
+
+# Validates sig/**/*.rbs. Requires Ruby >= 3.2.
+gem 'rbs', '>= 3', require: false if RUBY_VERSION >= '3.2'
