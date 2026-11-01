@@ -1,3 +1,19 @@
+== 3.0.0 - 01-Nov-2026
+* Raise the minimum supported Ruby version from 1.9.3 to 2.7, matching the
+  lowest version covered by CI. This is a breaking change for users on
+  older Rubies [#53](https://github.com/eitoball/net-ping/pull/53).
+* Add JRuby support: fix TCP ping's handling of refused connections, make
+  UDP ping's timeout work on JRuby, and use win32ole-ffi for WMI pings on
+  JRuby. JRuby 10.0/10.1 are now covered by CI
+  [#53](https://github.com/eitoball/net-ping/pull/53).
+* `require 'net/ping'` on Windows now warns instead of raising when
+  win32ole or win32-security is missing
+  [#53](https://github.com/eitoball/net-ping/pull/53).
+* Drop pry-byebug from the gem's development dependencies
+  [#53](https://github.com/eitoball/net-ping/pull/53).
+* Add RBS type definitions under sig/
+  [#54](https://github.com/eitoball/net-ping/pull/54).
+
 == 2.2.0 - 22-Sep-2026
 * Add support for HTTP to ping URLs requiring a query parameter, carrying
   forward #25 by Kenneth Perry (@thothonegan)
